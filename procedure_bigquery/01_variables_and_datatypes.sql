@@ -5,8 +5,8 @@
 --              scripting block (the BigQuery equivalent of PL/pgSQL).
 -- USAGE: Run this whole script in the BigQuery console "Editor" tab, or via
 --        `bq query --use_legacy_sql=false < 01_variables_and_datatypes.sql`
---
--- PostgreSQL -> BigQuery mapping used in this file:
+-- we are comparing pgsql with bigquery 
+ -- PostgreSQL -> BigQuery mapping used in this file:
 --   DO $$ DECLARE ... BEGIN ... END $$;   -> BEGIN DECLARE ... ... END;
 --   RAISE NOTICE '...', var;              -> SELECT FORMAT('...', var) AS log_message;
 --   INTEGER                               -> INT64
