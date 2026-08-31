@@ -1,0 +1,47 @@
+-- =========================================================================
+-- "TRIGGER" REPLACEMENT: updated_at stamping                      (BigQuery)
+-- DESCRIPTION: The PostgreSQL original creates a BEFORE UPDATE trigger
+--              (silver.trg_update_timestamp) bound to silver.dim_customer
+--              and silver.dim_products so that NEW.updated_at is stamped
+--              automatically on every UPDATE.
+--
+-- BigQuery has no trigger object at all -- see ../../09_triggers.sql for the
+-- full explanation and the three general replacement patterns. This file
+-- applies Pattern 1 (inline stamping) to this project's two dimension
+-- tables specifically.
+--
+-- In practice this project never runs a bare UPDATE against
+-- silver.dim_customer / silver.dim_products anyway -- every load procedure
+-- (proc_load_dim_customer.sql, proc_load_dim_products.sql) does a full
+-- DELETE + INSERT, and the column's `DEFAULT CURRENT_TIMESTAMP()` (see
+-- 01_ddl.sql) already stamps updated_at on every INSERT with no trigger
+-- needed. This file exists to show the pattern for the day an incremental
+-- UPDATE/MERGE path is added instead of a full reload.
+-- =========================================================================
+
+-- If/when an incremental UPDATE path is introduced, stamp updated_at
+-- directly in that statement -- no separate trigger function or binding
+-- step exists to create:
+--
+--   UPDATE silver.dim_customer
+--   SET first_name = @new_first_name,
+--       last_name  = @new_last_name,
+--       updated_at = CURRENT_TIMESTAMP()   -- replaces the BEFORE UPDATE trigger
+--   WHERE cust_id = @cust_id;
+--
+-- The same applies to a MERGE-based upsert, which is the more common
+-- BigQuery pattern for "insert new / update changed" dimension loads:
+--
+--   MERGE silver.dim_customer AS target
+--   USING staged_customers AS source
+--   ON target.cust_id = source.cust_id
+--   WHEN MATCHED THEN
+--     UPDATE SET
+--       first_name = source.first_name,
+--       last_name  = source.last_name,
+--       gender     = source.gender,
+--       updated_at = CURRENT_TIMESTAMP()   -- replaces the BEFORE UPDATE trigger
+--   WHEN NOT MATCHED THEN
+--     INSERT (customer_key, cust_id, first_name, last_name, email, gender, created_date, updated_at)
+--     VALUES (source.customer_key, source.cust_id, source.first_name, source.last_name,
+--             source.email, source.gender, source.created_date, CURRENT_TIMESTAMP());
